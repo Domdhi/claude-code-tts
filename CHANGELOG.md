@@ -67,5 +67,27 @@ All notable changes to claude-code-tts are documented here.
 - Queue management: one pending item per project, new messages replace queued
 
 ### Pre-2.0 History
-- Originally developed as a subfolder within the Domdhi.Cockpit project
-- Extracted to standalone repo for npm publishing
+
+Originally developed as VoiceOut, a personal tool inside the Domdhi.Cockpit project. Extracted to standalone repo for npm publishing.
+
+## [1.1.0] — 2026-02-26
+
+### Changed (VoiceOut v2 — Neural TTS)
+- Replaced Windows SAPI engine with kokoro-onnx neural TTS — natural, expressive voices vs. robotic SAPI
+- Replaced per-speak model load with persistent background daemon — kokoro pipeline stays loaded in memory (~2s cold start, instant after)
+- Daemon queues audio across multiple Claude Code sessions — prevents simultaneous sessions from colliding on the audio device
+- Added `voices.json` for per-agent voice mapping — agents prefix output with `[AgentName]:`, hook strips prefix and looks up voice
+
+### Fixed
+- Multi-instance audio collision — multiple Claude Code windows previously talked over each other; daemon serializes all output
+
+## [1.0.0] — 2026-02-26
+
+### Added (VoiceOut v1 — Windows SAPI)
+- `Stop` hook (`stop.py`) — reads Claude's transcript after every response, speaks last assistant message via Windows SAPI (PowerShell `System.Speech.Synthesis`)
+- `UserPromptSubmit` hook (`repeat.py`) — intercepts `/voice:repeat` and `/voice:stop` without LLM roundtrip
+- `on` flag file — TTS active only when file exists; delete to disable silently
+- `last.txt` — persists last spoken text for `/voice:repeat`
+- `pid` tracking — kills active speech process on new response, enabling true `/voice:stop`
+- `/voice:on`, `/voice:off`, `/voice:repeat`, `/voice:stop` slash commands
+- `READ_ALL_CHAIN` flag — reads entire tool-use chain when `True`, last message only when `False`
