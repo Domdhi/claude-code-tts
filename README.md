@@ -22,7 +22,7 @@ npx @domdhi/claude-code-tts
 npx @domdhi/claude-code-tts --global
 ```
 
-Requires Node.js 16+ and Python 3.10+. The installer handles everything else: Python packages, hook scripts, slash commands, and settings — one command, no build tools.
+Requires Node.js 16+ and Python 3.10+. The installer handles everything else: Python packages, hook scripts, the `/voice` skill, status line, and settings — one command, no build tools.
 
 ---
 
@@ -34,81 +34,68 @@ Three Claude Code hooks wire into the response lifecycle:
 |------|------------|------|
 | `Stop` | Claude finishes any response | `stop.py` |
 | `PostToolUse:Task` | A subagent completes | `task-hook.py` |
-| `UserPromptSubmit` | You type `/voice:stop` or `/voice:repeat` | `repeat.py` |
+| `UserPromptSubmit` | You type `/voice` commands | `repeat.py` |
 
 A persistent background daemon (`daemon.py`) keeps the TTS model warm. Hook scripts connect to it over TCP on localhost — it starts automatically on the first response and stays running between turns.
 
 **Engine priority:** Edge TTS (Microsoft neural voices, free, cloud) → kokoro-onnx (local fallback, activates automatically if Edge TTS fails or you're offline)
 
----
-
-## Voices
-
-Edit `voices.json` in your install directory to assign voices per agent or per project.
-
-| Key | Voice | Style |
-|-----|-------|-------|
-| `af_heart` | AriaNeural | warm female *(default)* |
-| `af_bella` | MichelleNeural | polished female |
-| `af_sarah` | SaraNeural | professional female |
-| `af_sky` | JennyNeural | friendly female |
-| `af_nova` | MonicaNeural | energetic female |
-| `am_michael` | GuyNeural | natural male |
-| `am_adam` | DavisNeural | deep male |
-| `am_echo` | TonyNeural | casual male |
-| `am_eric` | EricNeural | confident male |
-| `am_liam` | RyanNeural | energetic male |
-| `am_onyx` | ChristopherNeural | authoritative male |
-
-**Per-agent** — assign a different voice to each subagent type:
-```json
-{
-  "default":         { "voice": "af_heart",   "speed": 1.0 },
-  "general-purpose": { "voice": "am_michael",  "speed": 1.0 },
-  "code-reviewer":   { "voice": "am_onyx",     "speed": 0.9 }
-}
-```
-
-**Per-project** — matched against the project path:
-```json
-{
-  "projects": {
-    "my-api": { "voice": "am_onyx", "speed": 0.95 }
-  }
-}
-```
-
-**Per-agent prefix** — add `Always begin your response with [AgentName]:` to a custom agent's system prompt, then add it to `voices.json`:
-```json
-{
-  "Reviewer": { "voice": "am_adam", "speed": 0.9 }
-}
-```
+**Status line** shows TTS state and current voice at the bottom of Claude Code (e.g. `TTS on | Nova`).
 
 ---
 
 ## Commands
 
-Type any of these directly in the Claude Code prompt:
+Everything goes through `/voice`:
 
 | Command | Effect |
 |---------|--------|
-| `/voice:stop` | Stop speech immediately, clear queue |
-| `/voice:repeat` | Replay last response |
-| `/voice:on` | Re-enable TTS |
-| `/voice:off` | Disable TTS and stop current playback |
+| `/voice` | Toggle TTS on/off |
+| `/voice on` | Enable TTS |
+| `/voice off` | Disable TTS and stop playback |
+| `/voice stop` | Stop speech and disable TTS |
+| `/voice repeat` | Replay last response |
+| `/voice read <file>` | Read a file or folder aloud |
+| `/voice change <name>` | Change voice (e.g. `onyx`, `heart`, `nova`) |
+| `/voice <name> [faster\|slower]` | Quick voice + speed change |
+
+Simple commands (`on`/`off`/`stop`/`repeat`/toggle) are handled instantly by the hook — no LLM roundtrip. `change` and `read` use the skill for natural language processing.
+
+---
+
+## Voices
+
+11 voices with friendly aliases. Use `/voice change` interactively or `/voice change <name>` directly:
+
+| Name | Style | Gender |
+|------|-------|--------|
+| Heart | Warm, natural *(default)* | Female |
+| Bella | Polished, smooth | Female |
+| Sarah | Professional, clear | Female |
+| Sky | Friendly, conversational | Female |
+| Nova | Energetic, bright | Female |
+| Michael | Natural, authoritative | Male |
+| Adam | Deep, resonant | Male |
+| Echo | Casual, relaxed | Male |
+| Eric | Confident, direct | Male |
+| Liam | Young, energetic | Male |
+| Onyx | Deep, authoritative | Male |
+
+Natural language works too: `/voice bubbly girl faster` or `/voice deep authoritative male at 0.9 speed`
+
+**Per-agent** and **per-project** voice routing via `voices.json` — see [INSTALL.md](INSTALL.md) for details.
 
 ---
 
 ## Offline Fallback
 
-kokoro-onnx is an optional local engine that kicks in automatically when Edge TTS is unavailable (no internet, rate limit, etc.). Install it once:
+kokoro-onnx is an optional local engine that kicks in automatically when Edge TTS is unavailable. Models install once globally (~340MB) and are shared by all projects:
 
 ```bash
 pip install kokoro-onnx
 ```
 
-Then download the model files (~82MB) — see [INSTALL.md](INSTALL.md) for the full steps. The daemon detects it automatically; no config change needed.
+See [INSTALL.md](INSTALL.md) for model download steps. The daemon detects it automatically; no config change needed.
 
 ---
 
@@ -125,6 +112,8 @@ Then download the model files (~82MB) — see [INSTALL.md](INSTALL.md) for the f
 ## Full Docs
 
 [INSTALL.md](INSTALL.md) covers manual install, all settings, voice priority rules, daemon protocol, performance tuning, and troubleshooting.
+
+[CHANGELOG.md](CHANGELOG.md) tracks all changes.
 
 ---
 

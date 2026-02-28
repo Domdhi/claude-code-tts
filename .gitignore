@@ -14,9 +14,13 @@ task-hook.log
 last.txt
 on
 pid
+statusline_chain.txt
 
 # kokoro model files — large, downloaded separately by the installer
 models/
+
+# Scratch / temp
+temp/
 
 # Node
 node_modules/

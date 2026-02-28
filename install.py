@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 claude-code-tts installer
-Copies hook files to ~/.claude/hooks/tts/, installs slash commands, and patches settings.json.
+Copies hook files to ~/.claude/hooks/tts/, installs the /voice skill, and patches settings.json.
 """
 
 import argparse
@@ -26,23 +26,23 @@ KOKORO_MODEL_URLS = [
 ]
 
 # voices.json is excluded from HOOK_FILES -- handled separately to avoid clobbering customizations
-HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py']
-COMMAND_FILES = ['stop.md', 'repeat.md', 'on.md', 'off.md']
+HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py', 'statusline.py']
+SKILL_FILES = ['SKILL.md', 'read.md', 'change.md']
 
 SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
-HOOKS_SOURCE    = os.path.join(SOURCE_DIR, '.claude', 'hooks', 'tts')
-COMMANDS_SOURCE = os.path.join(SOURCE_DIR, '.claude', 'commands', 'voice')
+HOOKS_SOURCE  = os.path.join(SOURCE_DIR, '.claude', 'hooks', 'tts')
+SKILL_SOURCE  = os.path.join(SOURCE_DIR, '.claude', 'skills', 'voice')
 
 _home_claude = os.path.join(os.path.expanduser('~'), '.claude')
 _proj_claude = os.path.join(os.getcwd(), '.claude')
 
 # Default: project-local — all files go into ./.claude/ (current project)
 # --global overrides all of these to ~/.claude/
-INSTALL_DIR          = os.path.join(_proj_claude, 'hooks', 'tts')
-MODELS_DIR           = os.path.join(INSTALL_DIR, 'models')
-COMMANDS_INSTALL_DIR = os.path.join(_proj_claude, 'commands', 'voice')
+INSTALL_DIR       = os.path.join(_proj_claude, 'hooks', 'tts')
+MODELS_DIR        = os.path.join(INSTALL_DIR, 'models')
+SKILL_INSTALL_DIR = os.path.join(_proj_claude, 'skills', 'voice')
 # settings.local.json is gitignored — safe for machine-specific absolute paths
-SETTINGS_FILE        = os.path.join(_proj_claude, 'settings.local.json')
+SETTINGS_FILE     = os.path.join(_proj_claude, 'settings.local.json')
 
 GLOBAL_SCOPE = False
 
@@ -111,6 +111,7 @@ def copy_files():
     gitignore_content = (
         '# Runtime state — generated when the daemon runs, not for version control\n'
         'on\nlast.txt\ndaemon.log\ndebug.log\ntask-hook.log\npid\nmodels/\n'
+        'statusline_chain.txt\n'
     )
     with open(gitignore_dst, 'w', encoding='utf-8') as f:
         f.write(gitignore_content)
@@ -126,14 +127,14 @@ def copy_files():
         ok('voices.json')
 
 
-def copy_commands():
-    step('Installing slash command files...')
-    os.makedirs(COMMANDS_INSTALL_DIR, exist_ok=True)
-    for filename in COMMAND_FILES:
-        src = os.path.join(COMMANDS_SOURCE, filename)
-        dst = os.path.join(COMMANDS_INSTALL_DIR, filename)
+def copy_skill():
+    step('Installing /voice skill...')
+    os.makedirs(SKILL_INSTALL_DIR, exist_ok=True)
+    for filename in SKILL_FILES:
+        src = os.path.join(SKILL_SOURCE, filename)
+        dst = os.path.join(SKILL_INSTALL_DIR, filename)
         if not os.path.exists(src):
-            warn(f'Command file not found: {src} -- skipping')
+            warn(f'Skill file not found: {src} -- skipping')
             continue
         shutil.copy2(src, dst)
         ok(filename)
@@ -146,27 +147,27 @@ def enable_tts():
     ok('TTS enabled')
 
 
+KOKORO_GLOBAL_MODELS = os.path.join(_home_claude, 'hooks', 'tts', 'models')
+
+
 def _kokoro_already_installed():
-    """True if kokoro-onnx is importable and model files exist (in MODELS_DIR or default location)."""
+    """True if kokoro-onnx is importable and model files exist in the global models dir."""
     import importlib.util
     if importlib.util.find_spec('kokoro_onnx') is None:
         return False
-    default_models = os.path.join(os.path.expanduser('~'), '.claude', 'hooks', 'tts', 'models')
-    for models_dir in (MODELS_DIR, default_models):
-        if all(os.path.exists(os.path.join(models_dir, f))
-               for f in ('kokoro-v1.0.onnx', 'voices-v1.0.bin')):
-            return True
-    return False
+    return all(os.path.exists(os.path.join(KOKORO_GLOBAL_MODELS, f))
+               for f in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'))
 
 
 def offer_kokoro():
-    step('Offline fallback (kokoro-onnx, ~82MB download)')
+    step('Offline fallback (kokoro-onnx, ~340MB download)')
 
     if _kokoro_already_installed():
-        ok('kokoro-onnx already installed, skipping')
+        ok(f'kokoro-onnx already installed at {KOKORO_GLOBAL_MODELS}')
         return
 
     print('    Edge TTS requires internet. kokoro-onnx is a local fallback that works offline.')
+    print(f'    Models install once to {KOKORO_GLOBAL_MODELS} and are shared by all projects.')
     resp = input('    Install kokoro-onnx offline fallback? [y/N] ').strip().lower()
     if resp != 'y':
         ok('Skipped (edge-tts only mode)')
@@ -176,12 +177,12 @@ def offer_kokoro():
     pip_install(KOKORO_PACKAGES)
     ok('kokoro-onnx installed')
 
-    step('Downloading model files...')
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    step(f'Downloading model files to {KOKORO_GLOBAL_MODELS}...')
+    os.makedirs(KOKORO_GLOBAL_MODELS, exist_ok=True)
     try:
         import urllib.request
         for url, filename in KOKORO_MODEL_URLS:
-            dst = os.path.join(MODELS_DIR, filename)
+            dst = os.path.join(KOKORO_GLOBAL_MODELS, filename)
             print(f'    Downloading {filename}...')
             urllib.request.urlretrieve(url, dst)
             ok(filename)
@@ -200,13 +201,26 @@ def _hook_command(script_name):
     return f'{sys.executable} "{path}"'
 
 
-def _has_command(hook_list, command):
-    """Return True if command already appears in any entry in hook_list."""
-    for entry in hook_list:
-        for h in entry.get('hooks', []):
-            if h.get('command') == command:
-                return True
+def _is_tts_hook(entry):
+    """Return True if a hook entry belongs to claude-code-tts (any install path)."""
+    for h in entry.get('hooks', []):
+        cmd = h.get('command', '')
+        # Match any path ending in our script names
+        if any(cmd.endswith(f'{name}"') or cmd.endswith(name)
+               for name in ('stop.py', 'task-hook.py', 'repeat.py')):
+            return True
     return False
+
+
+def _set_hook(hooks, key, new_entry):
+    """Replace any existing TTS hook entry under key, or add if none exists.
+    Preserves non-TTS hooks the user may have configured."""
+    entries = hooks.get(key, [])
+    # Remove stale TTS hooks (e.g. from a different install path)
+    cleaned = [e for e in entries if not _is_tts_hook(e)]
+    cleaned.append(new_entry)
+    hooks[key] = cleaned
+    return len(cleaned) != len(entries)  # True if we replaced something
 
 
 def patch_settings_json():
@@ -231,38 +245,49 @@ def patch_settings_json():
     changed = False
 
     # Stop hook
-    if not _has_command(hooks.get('Stop', []), stop_cmd):
-        hooks.setdefault('Stop', []).append({
-            'hooks': [{'type': 'command', 'command': stop_cmd}]
-        })
-        changed = True
-        ok('Added Stop hook')
-    else:
-        ok('Stop hook already registered')
+    replaced = _set_hook(hooks, 'Stop', {
+        'hooks': [{'type': 'command', 'command': stop_cmd}]
+    })
+    changed = changed or replaced
+    ok('Updated Stop hook' if replaced else 'Set Stop hook')
 
     # PostToolUse:Task hook
-    if not _has_command(hooks.get('PostToolUse', []), task_cmd):
-        hooks.setdefault('PostToolUse', []).append({
-            'matcher': 'Task',
-            'hooks': [{'type': 'command', 'command': task_cmd}]
-        })
-        changed = True
-        ok('Added PostToolUse:Task hook')
-    else:
-        ok('PostToolUse:Task hook already registered')
+    replaced = _set_hook(hooks, 'PostToolUse', {
+        'matcher': 'Task',
+        'hooks': [{'type': 'command', 'command': task_cmd}]
+    })
+    changed = changed or replaced
+    ok('Updated PostToolUse:Task hook' if replaced else 'Set PostToolUse:Task hook')
 
     # UserPromptSubmit hook
-    if not _has_command(hooks.get('UserPromptSubmit', []), repeat_cmd):
-        hooks.setdefault('UserPromptSubmit', []).append({
-            'hooks': [{'type': 'command', 'command': repeat_cmd}]
-        })
+    replaced = _set_hook(hooks, 'UserPromptSubmit', {
+        'hooks': [{'type': 'command', 'command': repeat_cmd}]
+    })
+    changed = changed or replaced
+    ok('Updated UserPromptSubmit hook' if replaced else 'Set UserPromptSubmit hook')
+
+    # Status line — chain to any existing command so we don't clobber the user's setup
+    statusline_cmd = _hook_command('statusline.py')
+    existing_sl = settings.get('statusLine', {})
+    existing_sl_cmd = existing_sl.get('command', '') if isinstance(existing_sl, dict) else ''
+
+    _is_ours = existing_sl_cmd and 'statusline.py' in existing_sl_cmd
+    if existing_sl_cmd != statusline_cmd:
+        # Only chain if the existing command is NOT a stale TTS statusline
+        if existing_sl_cmd and not _is_ours:
+            chain_file = os.path.join(INSTALL_DIR, 'statusline_chain.txt')
+            with open(chain_file, 'w', encoding='utf-8') as f:
+                f.write(existing_sl_cmd)
+            ok(f'Saved existing statusLine command to statusline_chain.txt')
+
+        settings['statusLine'] = {'type': 'command', 'command': statusline_cmd}
         changed = True
-        ok('Added UserPromptSubmit hook')
+        ok('Updated statusLine' if _is_ours else 'Added statusLine for TTS status display')
     else:
-        ok('UserPromptSubmit hook already registered')
+        ok('statusLine already configured')
 
     if not changed:
-        ok('settings.json already up to date')
+        ok('settings already up to date')
         return
 
     # Backup before writing
@@ -274,7 +299,7 @@ def patch_settings_json():
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
     with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
         json.dump(settings, f, indent=2)
-    ok(f'settings.json saved')
+    ok(f'settings saved')
 
 
 def print_success():
@@ -283,28 +308,28 @@ def print_success():
     print(f"""
   DONE: claude-code-tts installed.
 
-  Hooks:     {INSTALL_DIR}
-  Commands:  {COMMANDS_INSTALL_DIR} {scope_note}
-  Settings:  {SETTINGS_FILE} {scope_note}
+  Hooks:    {INSTALL_DIR}
+  Skill:    {SKILL_INSTALL_DIR} {scope_note}
+  Settings: {SETTINGS_FILE} {scope_note}
 
   Quick test:
     Run Claude Code and ask anything -- the response will be read aloud.
 
-  Commands (type in Claude Code prompt):
-    /voice:stop    Stop speech immediately
-    /voice:repeat  Replay last response
-    /voice:on      Re-enable TTS
-    /voice:off     Disable TTS
+  /voice                          Toggle TTS on/off
+  /voice stop                     Stop speech + disable TTS
+  /voice repeat                   Replay last response
+  /voice read <file|folder>       Read a file or folder aloud
+  /voice change <name|description> Change the default voice
+  /voice <name> [faster|slower]   Quick voice/speed shortcut
 
-  To disable TTS:
-    Delete {on_file}
+  Status line shows TTS state and voice at the bottom of Claude Code.
 
   Full docs: INSTALL.md
 """)
 
 
 def main():
-    global INSTALL_DIR, MODELS_DIR, COMMANDS_INSTALL_DIR, SETTINGS_FILE, GLOBAL_SCOPE
+    global INSTALL_DIR, MODELS_DIR, SKILL_INSTALL_DIR, SETTINGS_FILE, GLOBAL_SCOPE
 
     parser = argparse.ArgumentParser(description='claude-code-tts installer')
     parser.add_argument(
@@ -313,7 +338,7 @@ def main():
     )
     parser.add_argument(
         '--global', dest='global_scope', action='store_true',
-        help='Install commands and settings into ~/.claude/ (all projects) instead of ./.claude/ (current project)'
+        help='Install skill and settings into ~/.claude/ (all projects) instead of ./.claude/ (current project)'
     )
     args = parser.parse_args()
 
@@ -326,7 +351,7 @@ def main():
         GLOBAL_SCOPE = True
         INSTALL_DIR          = os.path.join(_home_claude, 'hooks', 'tts')
         MODELS_DIR           = os.path.join(INSTALL_DIR, 'models')
-        COMMANDS_INSTALL_DIR = os.path.join(_home_claude, 'commands', 'voice')
+        SKILL_INSTALL_DIR = os.path.join(_home_claude, 'skills', 'voice')
         SETTINGS_FILE        = os.path.join(_home_claude, 'settings.json')
 
     scope_label = 'global (~/.claude/)' if args.global_scope else 'project-local (.claude/)'
@@ -339,10 +364,10 @@ def main():
     offer_kokoro()
 
     if testing:
-        step(f'Test install mode (--dir): skipping settings.json patch and command install.')
+        step(f'Test install mode (--dir): skipping settings.json patch and skill install.')
         ok(f'Hook files installed to {INSTALL_DIR}')
     else:
-        copy_commands()
+        copy_skill()
         patch_settings_json()
 
     print_success()

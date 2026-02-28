@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
 claude-code-tts — UserPromptSubmit hook
-Intercepts /repeat and /voice:stop commands.
-  /repeat       → replays the last spoken response
-  /voice:stop   → stops speech immediately
+Intercepts voice commands before they reach the LLM.
+  /voice stop       → stops speech + disables TTS
+  /voice repeat     → replays the last spoken response
+  /voice on         → enables TTS
+  /voice off        → disables TTS
+  /voice (no args)  → toggles TTS on/off
 """
 
 import json
@@ -82,27 +85,58 @@ def main():
 
     prompt = data.get('prompt', '').strip()
 
+    def _block(reason):
+        print(json.dumps({'decision': 'block', 'reason': reason}))
+        sys.exit(0)
+
+    # --- stop: stop speech + disable TTS ---
     if prompt in ('/voice stop', '/voice:stop', '/stop'):
         send_to_daemon({'cmd': 'stop'})
-        print(json.dumps({'decision': 'block', 'reason': ''}))
-        sys.exit(0)
-
-    if prompt not in ('/repeat', '/voice repeat', '/voice:repeat'):
-        sys.exit(0)
-
-    # Replay last spoken text
-    if os.path.exists(LAST_FILE):
         try:
-            with open(LAST_FILE, 'r', encoding='utf-8') as f:
-                text = f.read().strip()
-            if text:
-                voice, speed = load_default_voice()
-                send_to_daemon({'cmd': 'speak', 'text': text, 'voice': voice, 'speed': speed})
-        except Exception:
+            os.remove(ON_FILE)
+        except FileNotFoundError:
             pass
+        _block('TTS stopped and disabled. Status line updates on next message.')
 
-    print(json.dumps({'decision': 'block', 'reason': ''}))
-    sys.exit(0)
+    # --- on: enable TTS ---
+    if prompt in ('/voice on', '/voice:on'):
+        open(ON_FILE, 'w').close()
+        _block('TTS enabled. Status line updates on next message.')
+
+    # --- off: disable TTS + stop speech ---
+    if prompt in ('/voice off', '/voice:off'):
+        send_to_daemon({'cmd': 'stop'})
+        try:
+            os.remove(ON_FILE)
+        except FileNotFoundError:
+            pass
+        _block('TTS disabled. Status line updates on next message.')
+
+    # --- bare /voice: toggle TTS ---
+    if prompt in ('/voice', '/voice:auto-read', '/voice toggle'):
+        if os.path.exists(ON_FILE):
+            send_to_daemon({'cmd': 'stop'})
+            try:
+                os.remove(ON_FILE)
+            except FileNotFoundError:
+                pass
+            _block('TTS disabled. Status line updates on next message.')
+        else:
+            open(ON_FILE, 'w').close()
+            _block('TTS enabled. Status line updates on next message.')
+
+    # --- repeat: replay last spoken text ---
+    if prompt in ('/repeat', '/voice repeat', '/voice:repeat'):
+        if os.path.exists(LAST_FILE):
+            try:
+                with open(LAST_FILE, 'r', encoding='utf-8') as f:
+                    text = f.read().strip()
+                if text:
+                    voice, speed = load_default_voice()
+                    send_to_daemon({'cmd': 'speak', 'text': text, 'voice': voice, 'speed': speed})
+            except Exception:
+                pass
+        _block('Replaying last response.')
 
 
 if __name__ == '__main__':

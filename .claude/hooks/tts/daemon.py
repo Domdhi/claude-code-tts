@@ -37,8 +37,19 @@ DAEMON_DIR = os.path.dirname(os.path.abspath(__file__))
 import hashlib as _hashlib
 PORT = 49152 + (int(_hashlib.md5(DAEMON_DIR.encode()).hexdigest(), 16) % 16384)
 PID_FILE = os.path.join(DAEMON_DIR, 'daemon.pid')
-MODEL_PATH = os.path.join(DAEMON_DIR, 'models', 'kokoro-v1.0.onnx')
-VOICES_PATH = os.path.join(DAEMON_DIR, 'models', 'voices-v1.0.bin')
+# Model search: project-local first, then global ~/.claude/hooks/tts/models/
+_GLOBAL_MODELS = os.path.join(os.path.expanduser('~'), '.claude', 'hooks', 'tts', 'models')
+_LOCAL_MODELS = os.path.join(DAEMON_DIR, 'models')
+
+def _find_model(filename):
+    for d in (_LOCAL_MODELS, _GLOBAL_MODELS):
+        p = os.path.join(d, filename)
+        if os.path.exists(p):
+            return p
+    return os.path.join(_LOCAL_MODELS, filename)  # fallback path (will fail gracefully)
+
+MODEL_PATH = _find_model('kokoro-v1.0.onnx')
+VOICES_PATH = _find_model('voices-v1.0.bin')
 
 # Maps kokoro voice names → closest Edge TTS neural voice (gender/personality match)
 EDGE_VOICE_MAP = {

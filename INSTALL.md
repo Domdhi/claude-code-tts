@@ -24,10 +24,10 @@ Full reference for install options, voice configuration, hooks wiring, and troub
 ### Option A — npx (recommended)
 
 ```bash
-# Install for current project only (commands + settings.local.json in ./.claude/)
+# Install for current project only (skill + settings.local.json in ./.claude/)
 npx @domdhi/claude-code-tts
 
-# Install globally (commands + settings.json in ~/.claude/, all projects)
+# Install globally (skill + settings.json in ~/.claude/, all projects)
 npx @domdhi/claude-code-tts --global
 ```
 
@@ -38,13 +38,14 @@ The installer automatically:
 2. Installs required packages (`edge-tts`, `miniaudio`, `sounddevice`, `cffi`)
 3. Copies hook scripts to the install directory (`.claude/hooks/tts/` locally, `~/.claude/hooks/tts/` globally)
 4. Creates the `on` file (TTS enabled immediately)
-5. Optionally installs kokoro-onnx offline fallback (~82MB)
-6. Installs `/voice:*` slash commands
-7. Patches `settings.local.json` / `settings.json` with hook entries (backs up original first)
+5. Optionally installs kokoro-onnx offline fallback (~340MB, models stored globally at `~/.claude/hooks/tts/models/`)
+6. Installs the `/voice` skill to `.claude/skills/voice/`
+7. Patches `settings.local.json` / `settings.json` with hook entries and status line (backs up original first)
+8. Detects and replaces stale TTS hooks from previous installs — safe to reinstall without duplicates
 
 **Local vs global:**
-- Default (no flag): everything goes into `./.claude/` — hook scripts, commands, and `settings.local.json` (gitignored). Good for shipping TTS config alongside a project. Each install gets its own daemon port, so multiple local-installed projects run independently without conflict.
-- `--global`: everything goes into `~/.claude/` — hook scripts, commands, and `settings.json`. Recommended for personal use across all projects.
+- Default (no flag): everything goes into `./.claude/` — hook scripts, skill, and `settings.local.json` (gitignored). Good for shipping TTS config alongside a project. Each install gets its own daemon port, so multiple local-installed projects run independently without conflict.
+- `--global`: everything goes into `~/.claude/` — hook scripts, skill, and `settings.json`. Recommended for personal use across all projects.
 
 ### Option B — installer script
 
@@ -66,11 +67,12 @@ pip install edge-tts miniaudio sounddevice cffi
 mkdir -p ~/.claude/hooks/tts
 cp .claude/hooks/tts/daemon.py .claude/hooks/tts/stop.py \
    .claude/hooks/tts/task-hook.py .claude/hooks/tts/repeat.py \
-   .claude/hooks/tts/voices.json ~/.claude/hooks/tts/
+   .claude/hooks/tts/statusline.py .claude/hooks/tts/voices.json \
+   ~/.claude/hooks/tts/
 
-# Copy slash commands (global)
-mkdir -p ~/.claude/commands/voice
-cp .claude/commands/voice/*.md ~/.claude/commands/voice/
+# Copy /voice skill
+mkdir -p ~/.claude/skills/voice
+cp .claude/skills/voice/*.md ~/.claude/skills/voice/
 
 # Enable TTS
 touch ~/.claude/hooks/tts/on
@@ -119,6 +121,10 @@ The installer patches this automatically. For manual setup, add to `~/.claude/se
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "python \"$HOME/.claude/hooks/tts/statusline.py\""
   }
 }
 ```
@@ -158,20 +164,41 @@ The installer patches this automatically. For manual setup, add to `~/.claude/se
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "python \"C:\\Users\\YourName\\.claude\\hooks\\tts\\statusline.py\""
   }
 }
 ```
 
 ---
 
+## Commands
+
+Everything goes through `/voice`. Simple commands are handled instantly by the hook (no LLM roundtrip). `change` and `read` use the skill.
+
+| Command | Effect | Handled by |
+|---------|--------|-----------|
+| `/voice` | Toggle TTS on/off | Hook (instant) |
+| `/voice on` | Enable TTS | Hook (instant) |
+| `/voice off` | Disable TTS + stop playback | Hook (instant) |
+| `/voice stop` | Stop speech + disable TTS | Hook (instant) |
+| `/voice repeat` | Replay last spoken response | Hook (instant) |
+| `/voice change <name>` | Change voice and/or speed | Skill (LLM) |
+| `/voice read <file>` | Read a file or folder aloud | Skill (LLM) |
+| `/voice <name> [faster\|slower]` | Quick voice + speed shortcut | Skill (LLM) |
+
+---
+
 ## Offline Fallback (kokoro-onnx)
 
-kokoro-onnx is an optional local TTS engine. It activates automatically if edge-tts fails (no internet, rate limit, etc.).
+kokoro-onnx is an optional local TTS engine. It activates automatically if edge-tts fails (no internet, rate limit, etc.). Models are stored globally at `~/.claude/hooks/tts/models/` and shared by all projects.
 
 ```bash
 pip install kokoro-onnx
 
-# Download model files (~82MB total)
+# Download model files (~340MB total)
 # Mac/Linux:
 mkdir -p ~/.claude/hooks/tts/models
 curl -L "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx" \
@@ -187,27 +214,29 @@ Invoke-WebRequest "https://github.com/thewh1teagle/kokoro-onnx/releases/download
     -OutFile "$env:USERPROFILE\.claude\hooks\tts\models\voices-v1.0.bin"
 ```
 
+The daemon searches for models in the project-local `models/` directory first, then falls back to the global location.
+
 ---
 
 ## Voice Configuration
 
-Edit `~/.claude/hooks/tts/voices.json`.
+Edit `voices.json` in your hooks directory, or use `/voice change` interactively.
 
 ### Available voices
 
-| Key | Edge TTS voice | Style |
-|-----|----------------|-------|
-| `af_heart` | en-US-AriaNeural | warm, natural female (default) |
-| `af_bella` | en-US-MichelleNeural | polished female |
-| `af_sarah` | en-US-SaraNeural | professional female |
-| `af_sky` | en-US-JennyNeural | friendly, conversational |
-| `af_nova` | en-US-MonicaNeural | energetic female |
-| `am_michael` | en-US-GuyNeural | natural, authoritative male |
-| `am_adam` | en-US-DavisNeural | deep male |
-| `am_echo` | en-US-TonyNeural | casual male |
-| `am_eric` | en-US-EricNeural | confident male |
-| `am_liam` | en-US-RyanNeural | young, energetic male |
-| `am_onyx` | en-US-ChristopherNeural | deep, authoritative male |
+| Name | Key | Edge TTS voice | Style |
+|------|-----|----------------|-------|
+| Heart | `af_heart` | en-US-AriaNeural | warm, natural female (default) |
+| Bella | `af_bella` | en-US-MichelleNeural | polished female |
+| Sarah | `af_sarah` | en-US-SaraNeural | professional female |
+| Sky | `af_sky` | en-US-JennyNeural | friendly, conversational |
+| Nova | `af_nova` | en-US-MonicaNeural | energetic female |
+| Michael | `am_michael` | en-US-GuyNeural | natural, authoritative male |
+| Adam | `am_adam` | en-US-DavisNeural | deep male |
+| Echo | `am_echo` | en-US-TonyNeural | casual male |
+| Eric | `am_eric` | en-US-EricNeural | confident male |
+| Liam | `am_liam` | en-US-RyanNeural | young, energetic male |
+| Onyx | `am_onyx` | en-US-ChristopherNeural | deep, authoritative male |
 
 ### Voice priority (highest → lowest)
 
@@ -262,7 +291,9 @@ ls ~/.claude/projects/   # shows encoded dir names like c--Users-me-Repos-MyProj
 
 ## Enable / Disable
 
-TTS is gated on the presence of `~/.claude/hooks/tts/on`:
+Use `/voice on`, `/voice off`, or `/voice` (toggle) in Claude Code. These are instant (hook-based).
+
+The underlying mechanism is the presence of the `on` file in the hooks directory. You can also toggle manually:
 
 ```bash
 # Disable
@@ -275,16 +306,11 @@ echo. > %USERPROFILE%\.claude\hooks\tts\on  # Windows cmd
 
 ---
 
-## Commands
+## Status Line
 
-Type in the Claude Code prompt:
+The installer configures a status line that shows `TTS on | Nova` or `TTS off` at the bottom of Claude Code. If you already have a status line configured, the installer chains to it — your existing status line output appears first, with TTS status appended.
 
-| Prompt | Effect |
-|--------|--------|
-| `/voice:stop` | Stop speech immediately, clear queue |
-| `/voice:repeat` | Replay last spoken response |
-| `/voice:on` | Re-enable TTS (creates `on` file) |
-| `/voice:off` | Disable TTS (removes `on` file) |
+The status line updates after each assistant message. Hook-only commands (on/off/stop) display feedback in the blocked-by-hook message and the status line catches up on the next response.
 
 ---
 
@@ -343,6 +369,7 @@ The daemon auto-restarts on the next Claude response.
 - This is expected if you skipped the offline fallback install
 - The daemon will log: `kokoro-onnx not installed — edge-tts only`
 - Install it if you need offline support: `pip install kokoro-onnx` + download models
+- The daemon checks both project-local and global (`~/.claude/hooks/tts/models/`) model directories
 
 ### cffi not found / sounddevice import error
 - Run: `pip install cffi`
@@ -355,6 +382,9 @@ The daemon auto-restarts on the next Claude response.
 ### Audio cuts off mid-sentence (kokoro fallback)
 - kokoro-onnx has a 510-token (~1500 char) hard limit
 - The daemon chunks text at sentence boundaries automatically — if you're hitting this, check `debug.log` for `IndexError`
+
+### Duplicate speech on responses
+- Check for both global and project-local hooks firing — run the installer to clean up stale hooks, or remove the global install with `rm -rf ~/.claude/hooks/tts` and remove TTS entries from `~/.claude/settings.json`
 
 ### Windows: hook command not found / `C:Python313python.exe`
 - Claude Code runs hooks via bash, which cannot resolve `C:\...\python.exe` as a command

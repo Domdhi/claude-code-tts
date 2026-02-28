@@ -6,3 +6,4 @@ debug.log
 task-hook.log
 pid
 models/
+statusline_chain.txt
