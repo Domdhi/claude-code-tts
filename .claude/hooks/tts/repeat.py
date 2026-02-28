@@ -2,7 +2,7 @@
 """
 claude-code-tts — UserPromptSubmit hook
 Intercepts voice commands before they reach the LLM.
-  /voice stop       → stops speech + disables TTS
+  /voice stop       → stops current speech (TTS stays enabled)
   /voice repeat     → replays the last spoken response
   /voice on         → enables TTS
   /voice off        → disables TTS
@@ -89,14 +89,10 @@ def main():
         print(json.dumps({'decision': 'block', 'reason': reason}))
         sys.exit(0)
 
-    # --- stop: stop speech + disable TTS ---
+    # --- stop: stop current speech (TTS stays enabled) ---
     if prompt in ('/voice stop', '/voice:stop', '/stop'):
         send_to_daemon({'cmd': 'stop'})
-        try:
-            os.remove(ON_FILE)
-        except FileNotFoundError:
-            pass
-        _block('TTS stopped and disabled. Status line updates on next message.')
+        _block('Speech stopped.')
 
     # --- on: enable TTS ---
     if prompt in ('/voice on', '/voice:on'):

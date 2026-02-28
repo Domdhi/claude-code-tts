@@ -9,8 +9,10 @@ All notable changes to claude-code-tts are documented here.
   - `/voice change <name|description>` — change voice and/or speed with aliases (`onyx`, `heart`) and natural language (`bubbly girl faster`)
   - `/voice read <file|folder>` — read a file or folder aloud, context-aware (auto-detects last edited file)
   - `/voice on` / `/voice off` / `/voice` (toggle) — handled instantly by hook, no LLM roundtrip
-  - `/voice stop` — stops speech and disables TTS
+  - `/voice stop` — stops current speech (TTS stays enabled)
   - `/voice repeat` — replays last spoken response
+- **10 accent voices** — British (Sonia, Maisie, Ryan, Thomas), Australian (Natasha, William), Indian (Neerja, Prabhat), Irish (Emily, Connor)
+- **Custom Edge TTS voice passthrough** — use any Edge TTS `ShortName` directly in `voices.json` (e.g. `en-SG-LunaNeural`)
 - **Status line integration** — shows `TTS on | Nova` or `TTS off` in the Claude Code status bar
   - Friendly voice names (Nova, Onyx, Heart) instead of raw keys (af_nova, am_onyx)
   - Chains to any existing statusLine command — never clobbers user setup
@@ -23,7 +25,7 @@ All notable changes to claude-code-tts are documented here.
 - **Kokoro models install globally** — `~/.claude/hooks/tts/models/` shared by all projects, no per-project duplication
   - Daemon searches local then global models dir
   - Installer messaging clarified: "Models install once to ~/.claude/hooks/tts/models and are shared by all projects"
-- **`/voice:stop` now disables TTS** — removes the `on` file in addition to stopping speech
+- **`/voice stop` stops speech only** — no longer disables TTS; use `/voice off` to disable
 - **Fixed model size in docs** — corrected ~82MB → ~340MB (311MB model + 27MB voices)
 
 ### Removed

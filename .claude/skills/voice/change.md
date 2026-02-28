@@ -34,6 +34,16 @@ Change the default TTS voice and/or speed. The user may provide exact names, nat
    - confident, direct, bold (male) → Eric
    - young, energetic, upbeat (male) → Liam
    - deep, authoritative, commanding, powerful (male) → Onyx
+   - british, posh, elegant (female) → Sonia
+   - british, young, cheerful (female) → Maisie
+   - british (male) → Ryan
+   - british, refined, distinguished (male) → Thomas
+   - australian, aussie (female) → Natasha
+   - australian, aussie (male) → William
+   - indian (female) → Neerja
+   - indian (male) → Prabhat
+   - irish (female) → Emily
+   - irish (male) → Connor
 
    If only speed is being changed (no voice specified), keep the current voice.
    If only voice is being changed (no speed specified), keep the current speed.
@@ -42,9 +52,11 @@ Change the default TTS voice and/or speed. The user may provide exact names, nat
 
    Show the user a table with friendly names and mark the current default:
 
+   **American voices:**
+
    | Name | Style | Gender |
    |------|-------|--------|
-   | Heart | Warm, natural | Female |
+   | Heart | Warm, natural *(default)* | Female |
    | Bella | Polished, smooth | Female |
    | Sarah | Professional, clear | Female |
    | Sky | Friendly, conversational | Female |
@@ -56,15 +68,32 @@ Change the default TTS voice and/or speed. The user may provide exact names, nat
    | Liam | Young, energetic | Male |
    | Onyx | Deep, authoritative | Male |
 
-   Then use AskUserQuestion in two rounds:
+   **Accent voices:**
+
+   | Name | Accent | Style | Gender |
+   |------|--------|-------|--------|
+   | Sonia | British | Warm, polished | Female |
+   | Maisie | British | Young, cheerful | Female |
+   | Ryan | British | Balanced, clear | Male |
+   | Thomas | British | Refined, distinguished | Male |
+   | Natasha | Australian | Friendly, natural | Female |
+   | William | Australian | Confident, warm | Male |
+   | Neerja | Indian | Expressive, warm | Female |
+   | Prabhat | Indian | Clear, professional | Male |
+   | Emily | Irish | Soft, melodic | Female |
+   | Connor | Irish | Warm, natural | Male |
+
+   Then use AskUserQuestion. First ask the user to pick a category, then pick a voice from that category:
 
    First — group:
    - "Female voices" (description: "Heart, Bella, Sarah, Sky, Nova")
    - "Male voices" (description: "Michael, Adam, Echo, Eric, Liam, Onyx")
+   - "Accent voices" (description: "British, Australian, Indian, Irish")
 
    Second — pick voice using friendly names as labels, style as description:
    Female: Heart (Warm, natural), Bella (Polished, smooth), Sky (Friendly, conversational), Nova (Energetic, bright)
    Male: Michael (Natural, authoritative), Adam (Deep, resonant), Echo (Casual, relaxed), Onyx (Deep, authoritative)
+   Accent: Sonia (British female), Thomas (British male), Natasha (Australian female), William (Australian male) — then offer "More accents" → Maisie, Ryan, Neerja, Prabhat, Emily, Connor
 
 4. Resolve the chosen voice to its full key using the alias table, then update voices.json. Use the Edit tool — change "voice" and/or "speed" in the "default" block. Preserve everything else.
 
@@ -87,6 +116,16 @@ Match case-insensitively → resolve to full key for voices.json:
 | eric, am_eric | am_eric |
 | liam, am_liam | am_liam |
 | onyx, am_onyx | am_onyx |
+| sonia, bf_sonia | bf_sonia |
+| maisie, bf_maisie | bf_maisie |
+| ryan, bm_ryan | bm_ryan |
+| thomas, bm_thomas | bm_thomas |
+| natasha, xf_natasha | xf_natasha |
+| william, xm_william | xm_william |
+| neerja, if_neerja | if_neerja |
+| prabhat, im_prabhat | im_prabhat |
+| emily, ef_emily | ef_emily |
+| connor, em_connor | em_connor |
 
 If the argument doesn't match any voice or description, respond with: "I couldn't match that to a voice. Use /voice:change to browse them interactively."
 

@@ -183,7 +183,7 @@ Everything goes through `/voice`. Simple commands are handled instantly by the h
 | `/voice` | Toggle TTS on/off | Hook (instant) |
 | `/voice on` | Enable TTS | Hook (instant) |
 | `/voice off` | Disable TTS + stop playback | Hook (instant) |
-| `/voice stop` | Stop speech + disable TTS | Hook (instant) |
+| `/voice stop` | Stop current speech | Hook (instant) |
 | `/voice repeat` | Replay last spoken response | Hook (instant) |
 | `/voice change <name>` | Change voice and/or speed | Skill (LLM) |
 | `/voice read <file>` | Read a file or folder aloud | Skill (LLM) |
@@ -224,6 +224,8 @@ Edit `voices.json` in your hooks directory, or use `/voice change` interactively
 
 ### Available voices
 
+**American:**
+
 | Name | Key | Edge TTS voice | Style |
 |------|-----|----------------|-------|
 | Heart | `af_heart` | en-US-AriaNeural | warm, natural female (default) |
@@ -237,6 +239,40 @@ Edit `voices.json` in your hooks directory, or use `/voice change` interactively
 | Eric | `am_eric` | en-US-EricNeural | confident male |
 | Liam | `am_liam` | en-US-RyanNeural | young, energetic male |
 | Onyx | `am_onyx` | en-US-ChristopherNeural | deep, authoritative male |
+
+**Accents:**
+
+| Name | Key | Edge TTS voice | Accent | Style |
+|------|-----|----------------|--------|-------|
+| Sonia | `bf_sonia` | en-GB-SoniaNeural | British | warm, polished female |
+| Maisie | `bf_maisie` | en-GB-MaisieNeural | British | young, cheerful female |
+| Ryan | `bm_ryan` | en-GB-RyanNeural | British | balanced, clear male |
+| Thomas | `bm_thomas` | en-GB-ThomasNeural | British | refined, distinguished male |
+| Natasha | `xf_natasha` | en-AU-NatashaNeural | Australian | friendly, natural female |
+| William | `xm_william` | en-AU-WilliamMultilingualNeural | Australian | confident, warm male |
+| Neerja | `if_neerja` | en-IN-NeerjaExpressiveNeural | Indian | expressive, warm female |
+| Prabhat | `im_prabhat` | en-IN-PrabhatNeural | Indian | clear, professional male |
+| Emily | `ef_emily` | en-IE-EmilyNeural | Irish | soft, melodic female |
+| Connor | `em_connor` | en-IE-ConnorNeural | Irish | warm, natural male |
+
+### Custom Edge TTS voices
+
+Edge TTS has 48+ English voices across 14 locales (US, GB, AU, IN, IE, CA, NZ, SG, ZA, and more). To use any Edge TTS voice not in the built-in list, add it directly to `voices.json` in the daemon's `EDGE_VOICE_MAP` and to your `voices.json`:
+
+```bash
+# List all available English voices
+python -c "import edge_tts, asyncio; voices = asyncio.run(edge_tts.list_voices()); [print(v['ShortName'], v['Locale'], v['Gender']) for v in voices if v['Locale'].startswith('en-')]"
+```
+
+Then add to `voices.json`:
+```json
+{
+  "default": {"voice": "af_heart", "speed": 1.0},
+  "my-agent": {"voice": "en-SG-LunaNeural", "speed": 1.0}
+}
+```
+
+When a voice key isn't found in the built-in map, the daemon passes it directly to Edge TTS as a voice name. So you can use any Edge TTS `ShortName` (e.g. `en-SG-LunaNeural`, `en-NZ-MollyNeural`) as a voice key in `voices.json`.
 
 ### Voice priority (highest → lowest)
 

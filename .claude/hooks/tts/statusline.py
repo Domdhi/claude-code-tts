@@ -22,6 +22,11 @@ _VOICE_NAMES = {
     'af_sky': 'Sky', 'af_nova': 'Nova',
     'am_michael': 'Michael', 'am_adam': 'Adam', 'am_echo': 'Echo',
     'am_eric': 'Eric', 'am_liam': 'Liam', 'am_onyx': 'Onyx',
+    'bf_sonia': 'Sonia', 'bf_maisie': 'Maisie',
+    'bm_ryan': 'Ryan', 'bm_thomas': 'Thomas',
+    'xf_natasha': 'Natasha', 'xm_william': 'William',
+    'if_neerja': 'Neerja', 'im_prabhat': 'Prabhat',
+    'ef_emily': 'Emily', 'em_connor': 'Connor',
 }
 
 

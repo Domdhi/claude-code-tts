@@ -53,7 +53,7 @@ Everything goes through `/voice`:
 | `/voice` | Toggle TTS on/off |
 | `/voice on` | Enable TTS |
 | `/voice off` | Disable TTS and stop playback |
-| `/voice stop` | Stop speech and disable TTS |
+| `/voice stop` | Stop current speech |
 | `/voice repeat` | Replay last response |
 | `/voice read <file>` | Read a file or folder aloud |
 | `/voice change <name>` | Change voice (e.g. `onyx`, `heart`, `nova`) |
@@ -65,7 +65,9 @@ Simple commands (`on`/`off`/`stop`/`repeat`/toggle) are handled instantly by the
 
 ## Voices
 
-11 voices with friendly aliases. Use `/voice change` interactively or `/voice change <name>` directly:
+21 built-in voices — 11 American + 10 accent voices. Use `/voice change` interactively or `/voice change <name>` directly:
+
+**American**
 
 | Name | Style | Gender |
 |------|-------|--------|
@@ -81,7 +83,24 @@ Simple commands (`on`/`off`/`stop`/`repeat`/toggle) are handled instantly by the
 | Liam | Young, energetic | Male |
 | Onyx | Deep, authoritative | Male |
 
-Natural language works too: `/voice bubbly girl faster` or `/voice deep authoritative male at 0.9 speed`
+**Accents**
+
+| Name | Accent | Style | Gender |
+|------|--------|-------|--------|
+| Sonia | British | Warm, polished | Female |
+| Maisie | British | Young, cheerful | Female |
+| Ryan | British | Balanced, clear | Male |
+| Thomas | British | Refined, distinguished | Male |
+| Natasha | Australian | Friendly, natural | Female |
+| William | Australian | Confident, warm | Male |
+| Neerja | Indian | Expressive, warm | Female |
+| Prabhat | Indian | Clear, professional | Male |
+| Emily | Irish | Soft, melodic | Female |
+| Connor | Irish | Warm, natural | Male |
+
+Natural language works too: `/voice bubbly girl faster` or `/voice british male` or `/voice australian`
+
+**Need more?** Edge TTS has 48+ English voices across 14 locales. Add any Edge TTS voice directly to `voices.json` — see [INSTALL.md](INSTALL.md#custom-edge-tts-voices) for details.
 
 **Per-agent** and **per-project** voice routing via `voices.json` — see [INSTALL.md](INSTALL.md) for details.
 

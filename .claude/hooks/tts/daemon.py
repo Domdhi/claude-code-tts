@@ -53,6 +53,7 @@ VOICES_PATH = _find_model('voices-v1.0.bin')
 
 # Maps kokoro voice names → closest Edge TTS neural voice (gender/personality match)
 EDGE_VOICE_MAP = {
+    # American voices
     'af_heart':   'en-US-AriaNeural',        # warm, natural female
     'af_bella':   'en-US-MichelleNeural',    # polished female
     'af_sarah':   'en-US-SaraNeural',        # professional female
@@ -64,6 +65,17 @@ EDGE_VOICE_MAP = {
     'am_eric':    'en-US-EricNeural',        # confident male
     'am_liam':    'en-US-RyanNeural',        # young, energetic male
     'am_onyx':    'en-US-ChristopherNeural', # deep, authoritative male
+    # Accent voices
+    'bf_sonia':   'en-GB-SoniaNeural',       # British female
+    'bf_maisie':  'en-GB-MaisieNeural',      # British young female
+    'bm_ryan':    'en-GB-RyanNeural',        # British male
+    'bm_thomas':  'en-GB-ThomasNeural',      # British refined male
+    'xf_natasha': 'en-AU-NatashaNeural',     # Australian female
+    'xm_william': 'en-AU-WilliamMultilingualNeural', # Australian male
+    'if_neerja':  'en-IN-NeerjaExpressiveNeural',    # Indian female
+    'im_prabhat': 'en-IN-PrabhatNeural',     # Indian male
+    'ef_emily':   'en-IE-EmilyNeural',       # Irish female
+    'em_connor':  'en-IE-ConnorNeural',      # Irish male
 }
 
 # Speech state
@@ -177,7 +189,8 @@ def _synthesize_edge(text, voice, speed):
     import asyncio
     import miniaudio
     import numpy as np
-    edge_voice = EDGE_VOICE_MAP.get(voice, 'en-US-AriaNeural')
+    # Built-in alias → Edge TTS name, or pass through as raw Edge TTS voice name
+    edge_voice = EDGE_VOICE_MAP.get(voice, voice if 'Neural' in voice else 'en-US-AriaNeural')
     rate = _speed_to_rate(speed)
     audio_bytes = asyncio.run(_edge_async(text, edge_voice, rate))
     if not audio_bytes:
