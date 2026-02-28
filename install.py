@@ -26,7 +26,7 @@ KOKORO_MODEL_URLS = [
 ]
 
 # voices.json is excluded from HOOK_FILES -- handled separately to avoid clobbering customizations
-HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py', '.gitignore']
+HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py']
 COMMAND_FILES = ['stop.md', 'repeat.md', 'on.md', 'off.md']
 
 SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -105,6 +105,16 @@ def copy_files():
             sys.exit(1)
         shutil.copy2(src, dst)
         ok(filename)
+
+    # .gitignore: written inline (npm always strips dotfiles from packages)
+    gitignore_dst = os.path.join(INSTALL_DIR, '.gitignore')
+    gitignore_content = (
+        '# Runtime state — generated when the daemon runs, not for version control\n'
+        'on\nlast.txt\ndaemon.log\ndebug.log\ntask-hook.log\npid\nmodels/\n'
+    )
+    with open(gitignore_dst, 'w', encoding='utf-8') as f:
+        f.write(gitignore_content)
+    ok('.gitignore')
 
     # voices.json: only copy on first install -- preserve existing customizations
     voices_src = os.path.join(HOOKS_SOURCE, 'voices.json')
