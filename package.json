@@ -1,6 +1,6 @@
 {
   "name": "@domdhi/claude-code-tts",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Neural TTS hook system for Claude Code. Reads Claude's responses aloud as they finish.",
   "bin": {
     "claude-code-tts": "bin/install.js"
@@ -8,6 +8,7 @@
   "files": [
     "bin/",
     ".claude/",
+    ".claude/hooks/tts/.gitignore",
     "install.py",
     "INSTALL.md",
     "LICENSE"
