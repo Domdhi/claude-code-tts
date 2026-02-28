@@ -26,7 +26,7 @@ KOKORO_MODEL_URLS = [
 ]
 
 # voices.json is excluded from HOOK_FILES -- handled separately to avoid clobbering customizations
-HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py']
+HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py', '.gitignore']
 COMMAND_FILES = ['stop.md', 'repeat.md', 'on.md', 'off.md']
 
 SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))

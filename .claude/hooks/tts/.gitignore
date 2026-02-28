@@ -1,0 +1,8 @@
+# Runtime state — generated when the daemon runs, not for version control
+on
+last.txt
+daemon.log
+debug.log
+task-hook.log
+pid
+models/
