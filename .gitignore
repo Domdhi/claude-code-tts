@@ -1,0 +1,24 @@
+# Internal planning — not for public repo
+PLAN.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime state files (generated when the daemon runs)
+daemon.pid
+daemon.log
+debug.log
+task-hook.log
+last.txt
+on
+pid
+
+# kokoro model files — large, downloaded separately by the installer
+models/
+
+# Node
+node_modules/
+.npm/
+*.log

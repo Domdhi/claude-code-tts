@@ -1,0 +1,14 @@
+{
+  "default": {
+    "voice": "af_heart",
+    "speed": 1.0
+  },
+  "_comment_agents": "Add agent name keys to route agent voices. Key = subagent_type value (e.g. 'general-purpose') or [AgentName]: prefix in response (lowercase).",
+  "_comment_projects": "Add a 'projects' section to route by project. Key = substring of ~/.claude/projects/ dir name (case-insensitive).",
+  "_examples": {
+    "general-purpose": {"voice": "am_michael", "speed": 1.0},
+    "projects": {
+      "my-project": {"voice": "am_onyx", "speed": 0.95}
+    }
+  }
+}

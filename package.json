@@ -1,0 +1,32 @@
+{
+  "name": "@domdhi/claude-code-tts",
+  "version": "2.0.0",
+  "description": "Neural TTS hook system for Claude Code. Reads Claude's responses aloud as they finish.",
+  "bin": {
+    "claude-code-tts": "bin/install.js"
+  },
+  "files": [
+    "bin/",
+    ".claude/",
+    "install.py",
+    "INSTALL.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "tts",
+    "text-to-speech",
+    "hooks",
+    "voice"
+  ],
+  "author": "domdhi",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/domdhi/claude-code-tts"
+  }
+}
