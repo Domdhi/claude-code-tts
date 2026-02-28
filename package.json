@@ -1,6 +1,6 @@
 {
   "name": "@domdhi/claude-code-tts",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "Neural TTS hook system for Claude Code. Reads Claude's responses aloud as they finish.",
   "bin": {
     "claude-code-tts": "bin/install.js"
