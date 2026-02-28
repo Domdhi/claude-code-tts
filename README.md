@@ -1,61 +1,54 @@
 # claude-code-tts
 
-Neural TTS hook system for [Claude Code](https://claude.ai/code). Reads Claude's responses aloud as they finish.
+[![npm](https://img.shields.io/npm/v/@domdhi/claude-code-tts)](https://www.npmjs.com/package/@domdhi/claude-code-tts)
+[![npm downloads](https://img.shields.io/npm/dm/@domdhi/claude-code-tts)](https://www.npmjs.com/package/@domdhi/claude-code-tts)
+[![license](https://img.shields.io/badge/license-MIT-blue)](#license)
+[![platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)](#requirements)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](#requirements)
 
-**Engines:** Edge TTS (Microsoft neural voices, free, requires internet) with automatic offline fallback to kokoro-onnx.
-**Platform:** Windows, macOS, Linux
-**Install:** one command, no build tools required
+> Claude finishes a response. Your speakers read it aloud.
+
+Neural TTS hook system for [Claude Code](https://claude.ai/code). Hands-free — no copy-paste, no screen-watching. Just code and listen.
 
 ---
 
-## Quick Start
+## Install
 
 ```bash
-# Install for current project only
+# Project-local (recommended)
 npx @domdhi/claude-code-tts
 
-# Install globally (all projects)
+# Global — all projects
 npx @domdhi/claude-code-tts --global
 ```
 
-That's it. The installer copies the hook files into `.claude/hooks/tts/`, enables TTS, optionally installs the offline fallback, installs slash commands, and patches `settings.local.json` — all in the current project directory. Use `--global` to install once for all projects.
-
-**Requirements:** Node.js 16+ and Python 3.10+ must both be installed. The hooks run in Python — Node is only used for the install command.
-
-**Or install manually:**
-```bash
-git clone https://github.com/Domdhi/claude-code-tts
-cd claude-code-tts
-pip install edge-tts miniaudio sounddevice cffi
-python install.py           # project-local
-python install.py --global  # all projects
-```
+Requires Node.js 16+ and Python 3.10+. The installer handles everything else: Python packages, hook scripts, slash commands, and settings — one command, no build tools.
 
 ---
 
-## What It Does
+## How It Works
 
-Three Claude Code hooks work together:
+Three Claude Code hooks wire into the response lifecycle:
 
-| Hook | File | When it fires |
-|------|------|---------------|
-| `Stop` | `stop.py` | After every Claude response — reads it aloud |
-| `PostToolUse:Task` | `task-hook.py` | After a subagent finishes — reads its output |
-| `UserPromptSubmit` | `repeat.py` | On `/voice:repeat` or `/voice:stop` commands |
+| Hook | Fires when | File |
+|------|------------|------|
+| `Stop` | Claude finishes any response | `stop.py` |
+| `PostToolUse:Task` | A subagent completes | `task-hook.py` |
+| `UserPromptSubmit` | You type `/voice:stop` or `/voice:repeat` | `repeat.py` |
 
-A persistent daemon (`daemon.py`) keeps the TTS model loaded in the background. Hook files connect to it via TCP on `localhost:6254`, starting it automatically if needed.
+A persistent background daemon (`daemon.py`) keeps the TTS model warm. Hook scripts connect to it over TCP on localhost — it starts automatically on the first response and stays running between turns.
+
+**Engine priority:** Edge TTS (Microsoft neural voices, free, cloud) → kokoro-onnx (local fallback, activates automatically if Edge TTS fails or you're offline)
 
 ---
 
-## Voice Configuration
+## Voices
 
-Edit `~/.claude/hooks/tts/voices.json` to customize voices per agent or per project.
+Edit `voices.json` in your install directory to assign voices per agent or per project.
 
-**Available voices:**
-
-| Key | Edge TTS | Style |
-|-----|----------|-------|
-| `af_heart` | AriaNeural | warm female (default) |
+| Key | Voice | Style |
+|-----|-------|-------|
+| `af_heart` | AriaNeural | warm female *(default)* |
 | `af_bella` | MichelleNeural | polished female |
 | `af_sarah` | SaraNeural | professional female |
 | `af_sky` | JennyNeural | friendly female |
@@ -67,73 +60,71 @@ Edit `~/.claude/hooks/tts/voices.json` to customize voices per agent or per proj
 | `am_liam` | RyanNeural | energetic male |
 | `am_onyx` | ChristopherNeural | authoritative male |
 
-**Per-agent voices** — `task-hook.py` reads `subagent_type` from the Task tool and looks up the agent by name:
+**Per-agent** — assign a different voice to each subagent type:
 ```json
 {
-  "default": {"voice": "af_heart", "speed": 1.0},
-  "general-purpose": {"voice": "am_michael", "speed": 1.0}
+  "default":         { "voice": "af_heart",   "speed": 1.0 },
+  "general-purpose": { "voice": "am_michael",  "speed": 1.0 },
+  "code-reviewer":   { "voice": "am_onyx",     "speed": 0.9 }
 }
 ```
 
-**Per-project voices** — add a `"projects"` section with keys matched against the project path:
+**Per-project** — matched against the project path:
 ```json
 {
   "projects": {
-    "my-project": {"voice": "am_onyx", "speed": 0.95}
+    "my-api": { "voice": "am_onyx", "speed": 0.95 }
   }
 }
 ```
 
-**Per-agent prefix** — add `Always begin your response with [AgentName]:` to an agent's system prompt, then add it to `voices.json`:
+**Per-agent prefix** — add `Always begin your response with [AgentName]:` to a custom agent's system prompt, then add it to `voices.json`:
 ```json
 {
-  "MyAgent": {"voice": "am_adam", "speed": 0.9}
+  "Reviewer": { "voice": "am_adam", "speed": 0.9 }
 }
 ```
-The hook strips the `[AgentName]:` prefix before speaking.
-
-See [INSTALL.md](INSTALL.md) for the full configuration reference.
 
 ---
 
 ## Commands
 
-Type these in the Claude Code prompt:
+Type any of these directly in the Claude Code prompt:
 
 | Command | Effect |
 |---------|--------|
-| `/voice:stop` | Stop speech immediately |
+| `/voice:stop` | Stop speech immediately, clear queue |
 | `/voice:repeat` | Replay last response |
 | `/voice:on` | Re-enable TTS |
-| `/voice:off` | Disable TTS |
+| `/voice:off` | Disable TTS and stop current playback |
 
 ---
 
-## Enable / Disable
+## Offline Fallback
 
-TTS is controlled by the presence of an `on` file in the install directory:
+kokoro-onnx is an optional local engine that kicks in automatically when Edge TTS is unavailable (no internet, rate limit, etc.). Install it once:
 
 ```bash
-# Disable
-rm ~/.claude/hooks/tts/on
-
-# Re-enable (Mac/Linux)
-touch ~/.claude/hooks/tts/on
-
-# Re-enable (Windows cmd)
-echo. > %USERPROFILE%\.claude\hooks\tts\on
+pip install kokoro-onnx
 ```
+
+Then download the model files (~82MB) — see [INSTALL.md](INSTALL.md) for the full steps. The daemon detects it automatically; no config change needed.
 
 ---
 
 ## Requirements
 
-- Python 3.10+
-- Node.js 16+ (for `npx` install only)
-- Claude Code
-- Internet connection (for Edge TTS primary engine)
-- `edge-tts`, `miniaudio`, `sounddevice`, `cffi` (installed automatically)
-- Optional: `kokoro-onnx` + model files (~82MB) for offline fallback
+- **Claude Code** (obviously)
+- **Python 3.10+** — hooks run in Python
+- **Node.js 16+** — only needed for `npx` install
+- **Internet** — for Edge TTS primary engine (or install the offline fallback)
+- Python packages: `edge-tts`, `miniaudio`, `sounddevice`, `cffi` *(installed automatically)*
+
+---
+
+## Full Docs
+
+[INSTALL.md](INSTALL.md) covers manual install, all settings, voice priority rules, daemon protocol, performance tuning, and troubleshooting.
 
 ---
 
