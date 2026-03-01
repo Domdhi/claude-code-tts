@@ -278,7 +278,8 @@ When a voice key isn't found in the built-in map, the daemon passes it directly 
 
 1. `[AgentName]:` prefix in response text → agent voice from `voices.json`
 2. Project key match → `voices.json` `"projects"` section
-3. `"default"` entry in `voices.json`
+3. Session pool → auto-assigned voice for this CC instance
+4. `"default"` entry in `voices.json`
 
 ### Per-agent voices (task-hook.py)
 
@@ -323,6 +324,21 @@ ls ~/.claude/projects/   # shows encoded dir names like c--Users-me-Repos-MyProj
 }
 ```
 
+### Session pool (multi-instance)
+
+When running multiple Claude Code instances in the same project, each instance can get its own voice automatically. Add a `"session_pool"` array to `voices.json`:
+
+```json
+{
+  "default": {"voice": "af_heart", "speed": 1.0},
+  "session_pool": ["af_nova", "am_michael", "bf_sonia", "am_echo", "xf_natasha"]
+}
+```
+
+Each new CC session claims the first unused voice from the pool. Voices are released after 2 hours of inactivity. If all pool voices are claimed, the least recently active one is reused. The status line shows the pool-assigned voice for each instance.
+
+Agent-specific and project-specific voices still take priority over the pool.
+
 ---
 
 ## Enable / Disable
@@ -339,6 +355,25 @@ rm ~/.claude/hooks/tts/on
 touch ~/.claude/hooks/tts/on          # Mac/Linux
 echo. > %USERPROFILE%\.claude\hooks\tts\on  # Windows cmd
 ```
+
+---
+
+## TTS-Optimized Responses
+
+The hooks strip markdown before reading (code blocks → `[code block]`, tables → flat text). This works, but responses designed for reading sound much better.
+
+The installer ships a `CLAUDE_SNIPPET.md` alongside the hooks. Add it to your project's `CLAUDE.md` to make Claude write spoken prose when voice is on:
+
+```bash
+# Append the snippet to your project CLAUDE.md
+cat .claude/hooks/tts/CLAUDE_SNIPPET.md >> CLAUDE.md
+```
+
+**What it does:** When `/voice on` is active, Claude writes flowing sentences instead of bullet lists and tables. Code blocks are still used for actual code edits — only explanatory text changes.
+
+**Detection:** Claude checks for the `on` file: `test -f .claude/hooks/tts/on`
+
+**When voice is off:** Normal markdown formatting. No behavior change.
 
 ---
 

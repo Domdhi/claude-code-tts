@@ -22,7 +22,11 @@ npx @domdhi/claude-code-tts
 npx @domdhi/claude-code-tts --global
 ```
 
-Requires Node.js 16+ and Python 3.10+. The installer handles everything else: Python packages, hook scripts, the `/voice` skill, status line, and settings — one command, no build tools.
+Requires Node.js 16+ and Python 3.10+. The installer handles everything else: Python packages, hook scripts, the `/voice` skill, status line, and settings — one command, no build tools. It also offers optional setup for:
+
+- **Offline fallback** (kokoro-onnx) — local TTS when you're offline
+- **Session pool** — auto-assign unique voices when running multiple CC instances
+- **CLAUDE.md snippet** — makes Claude write spoken prose instead of markdown when voice is active
 
 ---
 
@@ -102,7 +106,21 @@ Natural language works too: `/voice bubbly girl faster` or `/voice british male`
 
 **Need more?** Edge TTS has 48+ English voices across 14 locales. Add any Edge TTS voice directly to `voices.json` — see [INSTALL.md](INSTALL.md#custom-edge-tts-voices) for details.
 
-**Per-agent** and **per-project** voice routing via `voices.json` — see [INSTALL.md](INSTALL.md) for details.
+**Per-agent**, **per-project**, and **per-session** voice routing via `voices.json` — see [INSTALL.md](INSTALL.md) for details. Running multiple CC instances? Add a `session_pool` and each instance gets its own voice automatically.
+
+---
+
+## TTS-Optimized Responses
+
+By default, the hooks strip markdown before reading — but code blocks become `[code block]` and tables turn to mush. For better results, tell Claude to write spoken prose when voice is active.
+
+The installer ships a ready-to-paste `CLAUDE.md` snippet at `.claude/hooks/tts/CLAUDE_SNIPPET.md`. Add it to your project's `CLAUDE.md`:
+
+```bash
+cat .claude/hooks/tts/CLAUDE_SNIPPET.md >> CLAUDE.md
+```
+
+With this, Claude detects voice mode and writes flowing sentences instead of bullet-heavy markdown. Code blocks still work for actual code — only the explanatory text changes.
 
 ---
 

@@ -15,6 +15,7 @@ last.txt
 on
 pid
 statusline_chain.txt
+sessions.json
 
 # kokoro model files — large, downloaded separately by the installer
 models/

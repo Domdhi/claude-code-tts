@@ -12,6 +12,8 @@ All notable changes to claude-code-tts are documented here.
   - `/voice stop` — stops current speech (TTS stays enabled)
   - `/voice repeat` — replays last spoken response
 - **10 accent voices** — British (Sonia, Maisie, Ryan, Thomas), Australian (Natasha, William), Indian (Neerja, Prabhat), Irish (Emily, Connor)
+- **Session pool** — `"session_pool"` in `voices.json` auto-assigns unique voices to multiple CC instances in the same project; 2-hour TTL with automatic cleanup
+- **CLAUDE_SNIPPET.md** — ready-to-paste `CLAUDE.md` snippet that makes Claude write TTS-friendly prose when voice mode is active
 - **Custom Edge TTS voice passthrough** — use any Edge TTS `ShortName` directly in `voices.json` (e.g. `en-SG-LunaNeural`)
 - **Status line integration** — shows `TTS on | Nova` or `TTS off` in the Claude Code status bar
   - Friendly voice names (Nova, Onyx, Heart) instead of raw keys (af_nova, am_onyx)

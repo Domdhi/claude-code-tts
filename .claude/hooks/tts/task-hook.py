@@ -16,6 +16,7 @@ import time
 HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 ON_FILE = os.path.join(HOOK_DIR, 'on')
 VOICES_FILE = os.path.join(HOOK_DIR, 'voices.json')
+SESSIONS_FILE = os.path.join(HOOK_DIR, 'sessions.json')
 DAEMON_SCRIPT = os.path.join(HOOK_DIR, 'daemon.py')
 
 DAEMON_HOST = '127.0.0.1'
@@ -88,6 +89,70 @@ def load_voices():
     return {'default': {'voice': 'af_heart', 'speed': 1.0}}
 
 
+_SESSION_TTL = 7200
+
+
+def _get_session_id(data):
+    sid = data.get('session_id', '')
+    if sid:
+        return sid
+    tp = data.get('transcript_path', '')
+    if tp:
+        return os.path.splitext(os.path.basename(tp))[0]
+    return ''
+
+
+def _get_session_voice(session_id, voices):
+    """Assign a voice from session_pool if configured. Returns voice key or None."""
+    pool = voices.get('session_pool')
+    if not pool or not session_id:
+        return None
+
+    sessions = {}
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
+                sessions = json.load(f)
+        except Exception:
+            sessions = {}
+
+    now = time.time()
+    sessions = {k: v for k, v in sessions.items()
+                if now - v.get('last_seen', 0) < _SESSION_TTL}
+
+    if session_id in sessions:
+        sessions[session_id]['last_seen'] = now
+        try:
+            with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(sessions, f)
+        except Exception:
+            pass
+        return sessions[session_id].get('voice')
+
+    used = {v.get('voice') for v in sessions.values()}
+    voice = None
+    for v in pool:
+        if v not in used:
+            voice = v
+            break
+
+    if voice is None:
+        pool_sessions = {k: v for k, v in sessions.items() if v.get('voice') in pool}
+        if pool_sessions:
+            oldest = min(pool_sessions, key=lambda k: pool_sessions[k].get('last_seen', 0))
+            voice = pool_sessions[oldest]['voice']
+        else:
+            voice = pool[0]
+
+    sessions[session_id] = {'voice': voice, 'last_seen': now}
+    try:
+        with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(sessions, f)
+    except Exception:
+        pass
+    return voice
+
+
 def _start_daemon():
     kwargs = {
         'stdout': subprocess.DEVNULL,
@@ -157,7 +222,16 @@ def main():
         sys.exit(0)
 
     voices = load_voices()
-    cfg = voices.get(agent_name) or voices.get('default') or {}
+    cfg = voices.get(agent_name)
+    if not cfg:
+        # No agent-specific voice — try session pool, then default
+        session_id = _get_session_id(data)
+        pool_voice = _get_session_voice(session_id, voices)
+        if pool_voice:
+            default_speed = float(voices.get('default', {}).get('speed', 1.0))
+            cfg = {'voice': pool_voice, 'speed': default_speed}
+        else:
+            cfg = voices.get('default') or {}
     voice = cfg.get('voice', 'af_heart')
     speed = float(cfg.get('speed', 1.0))
 

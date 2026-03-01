@@ -18,6 +18,7 @@ HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 ON_FILE = os.path.join(HOOK_DIR, 'on')
 LAST_FILE = os.path.join(HOOK_DIR, 'last.txt')
 VOICES_FILE = os.path.join(HOOK_DIR, 'voices.json')
+SESSIONS_FILE = os.path.join(HOOK_DIR, 'sessions.json')
 DAEMON_SCRIPT = os.path.join(HOOK_DIR, 'daemon.py')
 
 DAEMON_HOST = '127.0.0.1'
@@ -147,6 +148,77 @@ def parse_agent_voice(text, voices, fallback_cfg=None):
     return text, voice, speed
 
 
+_SESSION_TTL = 7200  # prune sessions not seen in 2 hours
+
+
+def _get_session_id(data):
+    """Extract a stable session ID from hook data."""
+    sid = data.get('session_id', '')
+    if sid:
+        return sid
+    tp = data.get('transcript_path', '')
+    if tp:
+        return os.path.splitext(os.path.basename(tp))[0]
+    return ''
+
+
+def _get_session_voice(session_id, voices):
+    """Assign a voice from session_pool if configured. Returns voice key or None."""
+    pool = voices.get('session_pool')
+    if not pool or not session_id:
+        return None
+
+    sessions = {}
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
+                sessions = json.load(f)
+        except Exception:
+            sessions = {}
+
+    now = time.time()
+    # Prune stale entries
+    sessions = {k: v for k, v in sessions.items()
+                if now - v.get('last_seen', 0) < _SESSION_TTL}
+
+    # Already assigned — refresh timestamp and return
+    if session_id in sessions:
+        sessions[session_id]['last_seen'] = now
+        try:
+            with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(sessions, f)
+        except Exception:
+            pass
+        return sessions[session_id].get('voice')
+
+    # Find voices currently claimed by active sessions
+    used = {v.get('voice') for v in sessions.values()}
+
+    # Pick first unused from pool
+    voice = None
+    for v in pool:
+        if v not in used:
+            voice = v
+            break
+
+    # All claimed — reuse the least recently seen
+    if voice is None:
+        pool_sessions = {k: v for k, v in sessions.items() if v.get('voice') in pool}
+        if pool_sessions:
+            oldest = min(pool_sessions, key=lambda k: pool_sessions[k].get('last_seen', 0))
+            voice = pool_sessions[oldest]['voice']
+        else:
+            voice = pool[0]
+
+    sessions[session_id] = {'voice': voice, 'last_seen': now}
+    try:
+        with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(sessions, f)
+    except Exception:
+        pass
+    return voice
+
+
 def _start_daemon():
     """Start the TTS daemon as a detached background process."""
     kwargs = {
@@ -236,7 +308,16 @@ def main():
 
     voices = load_voices()
     proj_cfg = get_project_voice(transcript_path, voices)
-    cleaned, voice, speed = parse_agent_voice(cleaned, voices, fallback_cfg=proj_cfg)
+
+    # Session pool: assign a unique voice per CC instance
+    session_id = _get_session_id(data)
+    pool_voice = _get_session_voice(session_id, voices)
+    default_speed = float(voices.get('default', {}).get('speed', 1.0))
+    pool_cfg = {'voice': pool_voice, 'speed': default_speed} if pool_voice else None
+
+    # Priority: agent prefix → project → session pool → default
+    fallback = proj_cfg or pool_cfg
+    cleaned, voice, speed = parse_agent_voice(cleaned, voices, fallback_cfg=fallback)
     speak(cleaned, voice, speed, project=get_project_key(transcript_path))
     sys.exit(0)
 

@@ -26,7 +26,7 @@ KOKORO_MODEL_URLS = [
 ]
 
 # voices.json is excluded from HOOK_FILES -- handled separately to avoid clobbering customizations
-HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py', 'statusline.py']
+HOOK_FILES = ['daemon.py', 'stop.py', 'task-hook.py', 'repeat.py', 'statusline.py', 'CLAUDE_SNIPPET.md']
 SKILL_FILES = ['SKILL.md', 'read.md', 'change.md']
 
 SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -111,7 +111,7 @@ def copy_files():
     gitignore_content = (
         '# Runtime state — generated when the daemon runs, not for version control\n'
         'on\nlast.txt\ndaemon.log\ndebug.log\ntask-hook.log\npid\nmodels/\n'
-        'statusline_chain.txt\n'
+        'statusline_chain.txt\nsessions.json\n'
     )
     with open(gitignore_dst, 'w', encoding='utf-8') as f:
         f.write(gitignore_content)
@@ -302,8 +302,106 @@ def patch_settings_json():
     ok(f'settings saved')
 
 
+ALL_POOL_VOICES = [
+    'af_heart', 'af_bella', 'af_sarah', 'af_sky', 'af_nova',
+    'am_michael', 'am_adam', 'am_echo', 'am_eric', 'am_liam', 'am_onyx',
+    'bf_sonia', 'bf_maisie', 'bm_ryan', 'bm_thomas',
+    'xf_natasha', 'xm_william', 'if_neerja', 'im_prabhat',
+    'ef_emily', 'em_connor',
+]
+
+
+def _voices_json_has_pool():
+    """True if voices.json already has a session_pool configured."""
+    voices_dst = os.path.join(INSTALL_DIR, 'voices.json')
+    if not os.path.exists(voices_dst):
+        return False
+    try:
+        with open(voices_dst, 'r', encoding='utf-8') as f:
+            return bool(json.load(f).get('session_pool'))
+    except Exception:
+        return False
+
+
+def offer_session_pool():
+    step('Session pool (multi-instance voice assignment)')
+
+    if _voices_json_has_pool():
+        ok('session_pool already configured in voices.json')
+        return
+
+    print('    When running multiple Claude Code instances in the same project,')
+    print('    each instance can get its own voice automatically.')
+    resp = input('    Enable session pool? [y/N] ').strip().lower()
+    if resp != 'y':
+        ok('Skipped (single-voice mode)')
+        return
+
+    voices_dst = os.path.join(INSTALL_DIR, 'voices.json')
+    try:
+        with open(voices_dst, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+    except Exception:
+        cfg = {'default': {'voice': 'af_heart', 'speed': 1.0}}
+
+    # Use all built-in voices except the default (it's already the fallback)
+    default_voice = cfg.get('default', {}).get('voice', 'af_heart')
+    pool = [v for v in ALL_POOL_VOICES if v != default_voice]
+    cfg['session_pool'] = pool
+
+    with open(voices_dst, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2)
+    ok(f'session_pool added with {len(pool)} voices')
+
+
+def offer_claude_snippet():
+    step('TTS-optimized responses (CLAUDE.md snippet)')
+
+    # Determine CLAUDE.md location
+    if GLOBAL_SCOPE:
+        claude_md = os.path.join(_home_claude, 'CLAUDE.md')
+    else:
+        claude_md = os.path.join(os.getcwd(), 'CLAUDE.md')
+
+    snippet_src = os.path.join(HOOKS_SOURCE, 'CLAUDE_SNIPPET.md')
+    if not os.path.exists(snippet_src):
+        snippet_src = os.path.join(INSTALL_DIR, 'CLAUDE_SNIPPET.md')
+    if not os.path.exists(snippet_src):
+        warn('CLAUDE_SNIPPET.md not found — skipping')
+        return
+
+    with open(snippet_src, 'r', encoding='utf-8') as f:
+        snippet = f.read()
+
+    # Check if already appended
+    if os.path.exists(claude_md):
+        try:
+            with open(claude_md, 'r', encoding='utf-8') as f:
+                existing = f.read()
+            if 'Voice Mode (TTS)' in existing:
+                ok('CLAUDE.md already has TTS snippet')
+                return
+        except Exception:
+            pass
+
+    print('    Adds instructions so Claude writes spoken prose instead of heavy')
+    print('    markdown when voice is active. Appends to your CLAUDE.md.')
+    resp = input(f'    Add TTS snippet to {claude_md}? [y/N] ').strip().lower()
+    if resp != 'y':
+        ok('Skipped — you can add it manually later from CLAUDE_SNIPPET.md')
+        return
+
+    try:
+        with open(claude_md, 'a', encoding='utf-8') as f:
+            f.write('\n' + snippet)
+        ok(f'Appended TTS snippet to {claude_md}')
+    except Exception as e:
+        fail(f'Could not write to {claude_md}: {e}')
+
+
 def print_success():
     on_file = os.path.join(INSTALL_DIR, 'on')
+    snippet_file = os.path.join(INSTALL_DIR, 'CLAUDE_SNIPPET.md')
     scope_note = '(global)' if GLOBAL_SCOPE else '(project-local)'
     print(f"""
   DONE: claude-code-tts installed.
@@ -316,13 +414,18 @@ def print_success():
     Run Claude Code and ask anything -- the response will be read aloud.
 
   /voice                          Toggle TTS on/off
-  /voice stop                     Stop speech + disable TTS
+  /voice stop                     Stop current speech
   /voice repeat                   Replay last response
   /voice read <file|folder>       Read a file or folder aloud
   /voice change <name|description> Change the default voice
   /voice <name> [faster|slower]   Quick voice/speed shortcut
 
   Status line shows TTS state and voice at the bottom of Claude Code.
+
+  TTS-optimized responses:
+    When voice is on, Claude can format output as spoken prose instead of
+    heavy markdown. Add the snippet to your project's CLAUDE.md:
+      {snippet_file}
 
   Full docs: INSTALL.md
 """)
@@ -369,6 +472,8 @@ def main():
     else:
         copy_skill()
         patch_settings_json()
+        offer_session_pool()
+        offer_claude_snippet()
 
     print_success()
 

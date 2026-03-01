@@ -78,11 +78,31 @@ def main():
 
     voice = 'af_heart'
     voices_file = os.path.join(hook_dir, 'voices.json')
+    voices_cfg = {}
     try:
         with open(voices_file, 'r', encoding='utf-8') as f:
-            voice = json.load(f).get('default', {}).get('voice', voice)
+            voices_cfg = json.load(f)
+            voice = voices_cfg.get('default', {}).get('voice', voice)
     except Exception:
         pass
+
+    # If session_pool is active, show the pool-assigned voice for this session
+    sessions_file = os.path.join(hook_dir, 'sessions.json')
+    if voices_cfg.get('session_pool'):
+        try:
+            session_data = json.loads(stdin_data) if stdin_data else {}
+            sid = session_data.get('session_id', '')
+            if not sid:
+                tp = session_data.get('transcript_path', '')
+                if tp:
+                    sid = os.path.splitext(os.path.basename(tp))[0]
+            if sid:
+                with open(sessions_file, 'r', encoding='utf-8') as f:
+                    sessions = json.load(f)
+                if sid in sessions:
+                    voice = sessions[sid].get('voice', voice)
+        except Exception:
+            pass
 
     display_name = _VOICE_NAMES.get(voice, voice)
     tts_status = f'TTS on | {display_name}' if on else 'TTS off'
