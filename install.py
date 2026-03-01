@@ -110,8 +110,8 @@ def copy_files():
     gitignore_dst = os.path.join(INSTALL_DIR, '.gitignore')
     gitignore_content = (
         '# Runtime state — generated when the daemon runs, not for version control\n'
-        'on\nlast.txt\ndaemon.log\ndebug.log\ntask-hook.log\npid\nmodels/\n'
-        'statusline_chain.txt\nsessions.json\n'
+        'on\nlast.txt\ndaemon.log\ndebug.log\ntask-hook.log\npid\ndaemon.pid\n'
+        'models/\nstatusline_chain.txt\nsessions.json\n'
     )
     with open(gitignore_dst, 'w', encoding='utf-8') as f:
         f.write(gitignore_content)

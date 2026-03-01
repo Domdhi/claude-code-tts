@@ -5,6 +5,7 @@ daemon.log
 debug.log
 task-hook.log
 pid
+daemon.pid
 models/
 statusline_chain.txt
 sessions.json

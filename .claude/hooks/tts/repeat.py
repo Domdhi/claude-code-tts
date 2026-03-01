@@ -48,7 +48,36 @@ def _start_daemon():
     return False
 
 
+PID_FILE = os.path.join(HOOK_DIR, 'daemon.pid')
+
+
+def _daemon_is_stale():
+    if not os.path.exists(PID_FILE):
+        return False
+    try:
+        return os.path.getmtime(DAEMON_SCRIPT) > os.path.getmtime(PID_FILE)
+    except Exception:
+        return False
+
+
+def _restart_daemon():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2.0)
+        s.connect((DAEMON_HOST, DAEMON_PORT))
+        s.sendall(json.dumps({'cmd': 'quit'}).encode() + b'\n')
+        s.recv(1024)
+        s.close()
+    except Exception:
+        pass
+    time.sleep(0.5)
+    return _start_daemon()
+
+
 def send_to_daemon(cmd_dict):
+    if _daemon_is_stale():
+        _restart_daemon()
+
     for attempt in range(2):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

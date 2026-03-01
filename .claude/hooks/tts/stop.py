@@ -242,8 +242,41 @@ def _start_daemon():
     return False
 
 
+PID_FILE = os.path.join(HOOK_DIR, 'daemon.pid')
+
+
+def _daemon_is_stale():
+    """True if daemon.py has been modified since the running daemon started."""
+    if not os.path.exists(PID_FILE):
+        return False
+    try:
+        script_mtime = os.path.getmtime(DAEMON_SCRIPT)
+        pid_mtime = os.path.getmtime(PID_FILE)
+        return script_mtime > pid_mtime
+    except Exception:
+        return False
+
+
+def _restart_daemon():
+    """Send quit to the old daemon and start a fresh one."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2.0)
+        s.connect((DAEMON_HOST, DAEMON_PORT))
+        s.sendall(json.dumps({'cmd': 'quit'}).encode() + b'\n')
+        s.recv(1024)
+        s.close()
+    except Exception:
+        pass
+    time.sleep(0.5)
+    return _start_daemon()
+
+
 def send_to_daemon(cmd_dict):
-    """Send a command to the daemon. Starts daemon if not running."""
+    """Send a command to the daemon. Starts daemon if not running, restarts if stale."""
+    if _daemon_is_stale():
+        _restart_daemon()
+
     for attempt in range(2):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
